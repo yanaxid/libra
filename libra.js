@@ -97,7 +97,7 @@ const client = new TelegramClient(
 
 
 
-    console.log("bot redy!!")
+    console.log("bot redy ...")
 
     //CEK IN
     cron.schedule("50 07 * * *", async () => {
