@@ -1,9 +1,10 @@
 {
-  "name": "telebot",
+  "name": "libra",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Telegram automation bot for daily attendance and task reporting",
+  "main": "libra.js",
   "scripts": {
+    "start": "node libra.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
