@@ -2,7 +2,6 @@ const { TelegramClient } = require("telegram")
 const { StringSession } = require("telegram/sessions")
 const { NewMessage } = require("telegram/events")
 const input = require("input")
-const fs = require("fs")
 const cron = require("node-cron")
 require("dotenv").config()
 
@@ -11,8 +10,12 @@ require("dotenv").config()
 const apiId = Number(process.env.API_ID)
 const apiHash = process.env.API_HASH
 const BOT_USERNAME = process.env.BOT_USERNAME
-const SESSION_FILE = "./.telegram/session.txt"
 const SHEET_API_URL = process.env.SHEET_API_URL
+const SESSION = process.env.SESSION
+
+
+if (!SESSION) throw new Error("SESSION env belum di-set")
+
 
 //FUNCTION
 function getLocalDate() {
@@ -34,7 +37,7 @@ async function send(text) {
 
 async function fetchTasksFromSheet() {
     try {
-        const res = await fetch(process.env.SHEET_API_URL)
+        const res = await fetch(SHEET_API_URL)
         if (!res.ok) throw new Error("Gagal ambil sheet")
         const tasks = await res.json()
         return tasks
@@ -58,10 +61,8 @@ function resetDaily() {
 }
 
 // SESSION
-let sessionStr = fs.existsSync(SESSION_FILE) ? fs.readFileSync(SESSION_FILE, "utf8") : ""
-
 const client = new TelegramClient(
-    new StringSession(sessionStr),
+    new StringSession(SESSION),
     apiId,
     apiHash,
     { connectionRetries: 5 }
@@ -77,8 +78,6 @@ const client = new TelegramClient(
         phoneCode: () => input.text("OTP: "),
         password: async () => input.text("PASS 2FA (jika ada): "),
     })
-
-    fs.writeFileSync(SESSION_FILE, client.session.save())
     console.log("login ok! session disimpan")
 
 
@@ -110,7 +109,7 @@ const client = new TelegramClient(
     }, { timezone: "Asia/Jakarta"})
 
     //CEK OUT
-    cron.schedule("25 10 * * *", async () => {
+    cron.schedule("15 10 * * *", async () => {
         resetDaily()
         if (attendance.clockOut) return
         console.log("⏰ [CRON] Saatnya Clock Out!")
