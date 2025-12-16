@@ -119,7 +119,7 @@ const client = new TelegramClient(
     }, { timezone: "Asia/Jakarta"})
 
     //CEK OUT
-    cron.schedule("00 17* * *", async () => {
+    cron.schedule("00 17 * * *", async () => {
         resetDaily()
         if (attendance.clockOut) return
         console.log("⏰ [CRON] Saatnya Clock Out!")
