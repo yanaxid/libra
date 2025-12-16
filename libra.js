@@ -88,6 +88,7 @@ const client = new TelegramClient(
         console.log(`${client.session.save()}`)
     } else {
         console.log("SESSION sudah ada, menggunakan session yang tersimpan");
+        await client.connect();
     }
 
 
@@ -110,11 +111,11 @@ const client = new TelegramClient(
     console.log("bot redy!!")
 
     //CEK IN
-    cron.schedule("50 07 * * *", async () => {
+    cron.schedule("20 08 * * *", async () => {
         resetDaily()
         if (attendance.clockIn) return
         console.log("[CRON] Saatnya Clock In!")
-        const ok = await send("/clock_in")
+        const ok = await send("/cek_ts")
         if (ok) attendance.clockIn = true
     }, { timezone: "Asia/Jakarta"})
 
