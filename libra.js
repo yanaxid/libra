@@ -111,7 +111,7 @@ const client = new TelegramClient(
     console.log("bot redy!!")
 
     //CEK IN
-    cron.schedule("20 08 * * *", async () => {
+    cron.schedule("25 08 * * *", async () => {
         resetDaily()
         if (attendance.clockIn) return
         console.log("[CRON] Saatnya Clock In!")
