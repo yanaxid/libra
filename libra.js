@@ -14,7 +14,7 @@ const SHEET_API_URL = process.env.SHEET_API_URL
 const SESSION = process.env.SESSION
 
 
-if (!SESSION) throw new Error("SESSION env belum di-set")
+
 
 
 //FUNCTION
@@ -72,13 +72,23 @@ const client = new TelegramClient(
 
 // MAIN
 (async () => {
-    console.log("LOGIN TELEGRAM")
-    await client.start({
-        phoneNumber: () => input.text("INPUT NO HP: "),
-        phoneCode: () => input.text("OTP: "),
-        password: async () => input.text("PASS 2FA (jika ada): "),
-    })
-    console.log("login ok! session disimpan")
+
+     if (!SESSION) {
+        console.log("login telegram");
+
+        await client.start({
+            phoneNumber: () => input.text("INPUT NO HP: "),
+            phoneCode: () => input.text("OTP: "),
+            password: async () => input.text("PASS 2FA (jika ada): "),
+            onError: (err) => console.error(err),
+        });
+
+        console.log("login ok! session baru disimpan")
+        console.log("\n COPY INI UNTUK .env")
+        console.log(`${client.session.save()}`)
+    } else {
+        console.log("SESSION sudah ada, menggunakan session yang tersimpan");
+    }
 
 
 
@@ -97,10 +107,10 @@ const client = new TelegramClient(
 
 
 
-    console.log("bot redy ...")
+    console.log("bot redy!!")
 
     //CEK IN
-    cron.schedule("50 07 * * *", async () => {
+    cron.schedule("18 00 * * *", async () => {
         resetDaily()
         if (attendance.clockIn) return
         console.log("[CRON] Saatnya Clock In!")
@@ -109,12 +119,13 @@ const client = new TelegramClient(
     }, { timezone: "Asia/Jakarta"})
 
     //CEK OUT
-    cron.schedule("00 17 * * *", async () => {
+    cron.schedule("15 10 * * *", async () => {
         resetDaily()
         if (attendance.clockOut) return
         console.log("⏰ [CRON] Saatnya Clock Out!")
         const ok = await send("/clock_out")
         if (ok) attendance.clockOut = true
+
 
 
         const tasks = await fetchTasksFromSheet()
