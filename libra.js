@@ -110,7 +110,7 @@ const client = new TelegramClient(
     console.log("bot redy!!")
 
     //CEK IN
-    cron.schedule("18 00 * * *", async () => {
+    cron.schedule("50 07 * * *", async () => {
         resetDaily()
         if (attendance.clockIn) return
         console.log("[CRON] Saatnya Clock In!")
@@ -119,20 +119,20 @@ const client = new TelegramClient(
     }, { timezone: "Asia/Jakarta"})
 
     //CEK OUT
-    cron.schedule("15 10 * * *", async () => {
+    cron.schedule("00 17* * *", async () => {
         resetDaily()
         if (attendance.clockOut) return
         console.log("⏰ [CRON] Saatnya Clock Out!")
         const ok = await send("/clock_out")
         if (ok) attendance.clockOut = true
 
-
-
         const tasks = await fetchTasksFromSheet()
         console.log("\n📄 TASKS DARI GOOGLE SHEET:")
-        tasks.forEach(task => {
+        for (const task of tasks) {
             console.log(`/TS ${task.taskId} :  ${task.task} : ${task.hour}`)
-        })
+            let text = `/TS ${task.taskId} :  ${task.task} : ${task.hour}`
+            await send(text)
+        }
 
 
     }, {timezone: "Asia/Jakarta"})
