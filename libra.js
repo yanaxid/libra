@@ -111,11 +111,11 @@ const client = new TelegramClient(
     console.log("bot redy!!")
 
     //CEK IN
-    cron.schedule("25 08 * * *", async () => {
+    cron.schedule("47 07 * * *", async () => {
         resetDaily()
         if (attendance.clockIn) return
         console.log("[CRON] Saatnya Clock In!")
-        const ok = await send("/cek_ts")
+        const ok = await send("/clock_in")
         if (ok) attendance.clockIn = true
     }, { timezone: "Asia/Jakarta"})
 
