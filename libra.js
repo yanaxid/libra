@@ -4,54 +4,25 @@ const { NewMessage } = require("telegram/events")
 const input = require("input")
 const cron = require("node-cron")
 require("dotenv").config()
+const { Client: WaClient, LocalAuth } = require("whatsapp-web.js")
+const qrcode = require("qrcode-terminal")
 
-
-// CONFIG
-const apiId = Number(process.env.API_ID)
-const apiHash = process.env.API_HASH
+//CONFIG
+const API_ID = Number(process.env.API_ID)
+const API_HASH = process.env.API_HASH
 const BOT_USERNAME = process.env.BOT_USERNAME
 const SHEET_API_URL = process.env.SHEET_API_URL
 const SESSION = process.env.SESSION
+const WA_GROUP_ID = process.env.GROUPID_WA
 
 
-
-
-
-//FUNCTION
 function getLocalDate() {
     return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
 }
 
-async function send(text) {
-    try {
-        const bot = await client.getEntity(BOT_USERNAME)
-        await client.sendMessage(bot, { message: text })
-        console.log(`terkirim: ${text}`)
-        return true
-    } catch (e) {
-        console.error("gagal kirim: ", e.message)
-        return false
-    }
-}
-
-
-async function fetchTasksFromSheet() {
-    try {
-        const res = await fetch(SHEET_API_URL)
-        if (!res.ok) throw new Error("Gagal ambil sheet")
-        const tasks = await res.json()
-        return tasks
-    } catch (err) {
-        console.error("Error fetch tasks:", err.message)
-        return []
-    }
-}
-
-
 // ATTENDANCE STATE
 let attendance = { date: null, clockIn: false, clockOut: false }
 
-// RESET HARIAN
 function resetDaily() {
     const today = getLocalDate()
     if (attendance.date !== today) {
@@ -60,82 +31,191 @@ function resetDaily() {
     }
 }
 
-// SESSION
-const client = new TelegramClient(
-    new StringSession(SESSION),
-    apiId,
-    apiHash,
-    { connectionRetries: 5 }
-);
 
+// WHATSAPP CLIENT
+let waReady = false
 
+const waClient = new WaClient({
+    authStrategy: new LocalAuth(),
+    puppeteer: {
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    },
+})
 
-// MAIN
-(async () => {
+waClient.on("qr", (qr) => {
+    console.log(":::: scan qr:")
+    qrcode.generate(qr, { small: true })
+})
 
-     if (!SESSION) {
-        console.log("login telegram");
+waClient.on("ready", () => {
+    waReady = true
+    console.log(":::: wa ready")
+})
 
-        await client.start({
-            phoneNumber: () => input.text("INPUT NO HP: "),
-            phoneCode: () => input.text("OTP: "),
-            password: async () => input.text("PASS 2FA (jika ada): "),
-            onError: (err) => console.error(err),
-        });
+waClient.on("auth_failure", (msg) => {
+    waReady = false
+    console.error(":::: xxx wa auth gagal:", msg)
+})
 
-        console.log("login ok! session baru disimpan")
-        console.log("\n COPY INI UNTUK .env")
-        console.log(`${client.session.save()}`)
-    } else {
-        console.log("SESSION sudah ada, menggunakan session yang tersimpan");
-        await client.connect();
+waClient.on("disconnected", (reason) => {
+    waReady = false
+    console.error(":::: wa disconnected:", reason)
+})
+
+waClient.initialize()
+
+async function sendWA(text) {
+    if (!waReady) {
+        console.log(":::: wa belum siap, kirim pesan diskip")
+        return false
     }
 
+    try {
+        await waClient.sendMessage(WA_GROUP_ID, text)
+        console.log(":::: wa terkirim:", text)
+        return true
+    } catch (e) {
+        console.error(":::: gagal kirim WA:", e.message)
+        return false
+    }
+}
 
+// TELEGRAM CLIENT
+const tgClient = new TelegramClient(
+    new StringSession(SESSION), API_ID, API_HASH, { connectionRetries: 5 }
+)
 
-    // LISTENER
-    client.addEventHandler(async (event) => {
-        const m = event.message
-        if (!m || m.out) return
+async function sendTG(text) {
+    if (!tgClient.connected) {
+        console.log(":::: telegram belum connected, skip:", text)
+        return false
+    }
 
-        const sender = await m.getSender()
-        if (!sender?.bot || sender.username !== BOT_USERNAME) return
+    try {
+        const bot = await tgClient.getEntity(BOT_USERNAME)
+        await tgClient.sendMessage(bot, { message: text })
+        console.log(":::: telegram terkirim:", text)
+        return true
+    } catch (e) {
+        console.error(":::: gagal kirim ke telegram:", e.message)
+        return false
+    }
+}
 
-        console.log("\n📩 Pesan dari Virgo:")
-        console.log(m.message || "gak ada text")
+async function fetchTasksFromSheet() {
+    try {
+        const res = await fetch(SHEET_API_URL)
+        if (!res.ok) throw new Error(":::: gagal get sheet")
+        return await res.json()
+    } catch (err) {
+        console.error(":::: fetch data dari google sheet error", err.message)
+        return null
+    }
+}
 
+// MAIN
+; (async () => {
+    // LOGIN TELEGRAM
+    if (!SESSION) {
+        console.log(":::: login telegram ...")
+        await tgClient.start({
+            phoneNumber: () => input.text(":::: INPUT NO HP: "),
+            phoneCode: () => input.text(":::: OTP: "),
+            password: async () => input.text(":::: PASS 2FA (jika ada): "),
+            onError: console.error,
+        })
+
+        console.log(":::: login telgram ok!")
+        console.log(":::: COPY KE .env:")
+        console.log(tgClient.session.save())
+    } else {
+        await tgClient.connect()
+        console.log(":::: telegram connected")
+    }
+
+    // LISTENER TELEGRAM
+    tgClient.addEventHandler(async (event) => {
+        try {
+            const m = event.message
+            if (!m || m.out) return
+
+            const sender = await m.getSender()
+            if (!sender?.bot || sender.username !== BOT_USERNAME) return
+
+            console.log(":::: pesan dari bot:", m.message)
+        } catch (err) {
+            console.error(":::: telegram event handler error:", err.message)
+        }
     }, new NewMessage({ incoming: true }))
 
 
+    console.log(":::: bot siap")
 
-    console.log("bot redy!!")
+    // CRON CLOCK IN
+    cron.schedule(
+        "15 11 * * 1-5",
+        async () => {
+            resetDaily()
+            if (attendance.clockIn) return
 
-    //CEK IN
-    cron.schedule("47 07 * * *", async () => {
-        resetDaily()
-        if (attendance.clockIn) return
-        console.log("[CRON] Saatnya Clock In!")
-        const ok = await send("/clock_in")
-        if (ok) attendance.clockIn = true
-    }, { timezone: "Asia/Jakarta"})
+            console.log("clock in")
+            await sendTG("/clock_in")
 
-    //CEK OUT
-    cron.schedule("00 17 * * *", async () => {
+            const data = await fetchTasksFromSheet()
+            if ( !data || !Array.isArray(data.cico) || data.cico.length === 0 || !data.cico[0].ci ) {
+                console.log(":::: CI kosong / tidak ditemukan")
+                return
+            }
+
+            attendance.clockIn = true
+            await sendWA(data.cico[0].ci)
+        },
+        { timezone: "Asia/Jakarta" }
+    )
+
+    // CRON CLOCK OUT
+    cron.schedule("16 11 * * 1-5", async () => {
         resetDaily()
         if (attendance.clockOut) return
-        console.log("⏰ [CRON] Saatnya Clock Out!")
-        const ok = await send("/clock_out")
-        if (ok) attendance.clockOut = true
 
-        const tasks = await fetchTasksFromSheet()
-        console.log("\n📄 TASKS DARI GOOGLE SHEET:")
-        for (const task of tasks) {
-            console.log(`/TS ${task.taskId} :  ${task.task} : ${task.hour}`)
-            let text = `/TS ${task.taskId} :  ${task.task} : ${task.hour}`
-            await send(text)
+        console.log(":::: clock out")
+        await sendTG("/clock_out")
+        attendance.clockOut = true
+
+        const data = await fetchTasksFromSheet()
+        if (!data) {
+            console.log(":::: data kosong dari sheet")
+            return
         }
 
+        const coMessage = data?.cico?.[0]?.co
+        if (!coMessage) {
+            console.log(":::: CO kosong / tidak ditemukan")
+        } else {
+            await sendWA(coMessage)
+        }
 
-    }, {timezone: "Asia/Jakarta"})
+        if (!Array.isArray(data.tasks) || data.tasks.length === 0) {
+            console.log(":::: list task kosong")
+            attendance.clockOut = true
+            return
+        }
 
+        const delay = ms => new Promise(r => setTimeout(r, ms))
+        for (const task of data.tasks) {
+            if (!task?.taskId || !task?.task || !task?.hour) {
+                console.log(":::: data task tidak lengkap:", task)
+                continue
+            }
+
+            const text = `/TS ${task.taskId} : ${task.task} : ${task.hour}`
+            console.log("text --> "+ text)
+            // await sendTG(text)
+            await delay(1500)
+        }
+        attendance.clockOut = true
+    },
+        { timezone: "Asia/Jakarta" }
+    )
 })()
