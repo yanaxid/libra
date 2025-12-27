@@ -36,12 +36,38 @@ function resetDaily() {
 let waReady = false
 
 const waClient = new WaClient({
-    authStrategy: new LocalAuth(),
+
+    authStrategy: new LocalAuth({
+
+        clientId: "libra-bot"
+
+    }),
+
     puppeteer: {
         headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    },
+
+        args: [
+
+            "--no-sandbox",
+
+            "--disable-setuid-sandbox",
+
+            "--disable-dev-shm-usage",
+
+            "--disable-gpu",
+
+            "--single-process"
+
+        ]
+
+    }
+
 })
+
+
+
+
+
 
 waClient.on("qr", (qr) => {
     console.log(":::: scan qr:")
@@ -61,7 +87,49 @@ waClient.on("auth_failure", (msg) => {
 waClient.on("disconnected", (reason) => {
     waReady = false
     console.error(":::: wa disconnected:", reason)
+
 })
+
+
+
+waClient.on("authenticated", () => {
+
+    console.log("✅ AUTHENTICATED (session tersimpan)")
+
+})
+
+
+
+process.on("SIGINT", async () => {
+
+    console.log("\n:::: shutdown detected, closing WA client...")
+
+
+
+    try {
+
+        if (waClient) {
+
+            await waClient.destroy()
+
+            console.log(":::: WA client closed cleanly")
+
+        }
+
+    } catch (e) {
+
+        console.error(":::: error closing WA:", e.message)
+
+    }
+
+
+
+    process.exit(0)
+
+})
+
+
+
 
 waClient.initialize()
 
@@ -125,7 +193,6 @@ async function fetchTasksFromSheet() {
             password: async () => input.text(":::: PASS 2FA (jika ada): "),
             onError: console.error,
         })
-
         console.log(":::: login telgram ok!")
         console.log(":::: COPY KE .env:")
         console.log(tgClient.session.save())
@@ -139,7 +206,6 @@ async function fetchTasksFromSheet() {
         try {
             const m = event.message
             if (!m || m.out) return
-
             const sender = await m.getSender()
             if (!sender?.bot || sender.username !== BOT_USERNAME) return
 
@@ -163,11 +229,12 @@ async function fetchTasksFromSheet() {
             await sendTG("/clock_in")
 
             const data = await fetchTasksFromSheet()
-            if ( !data || !Array.isArray(data.cico) || data.cico.length === 0 || !data.cico[0].ci ) {
+
+            if (!data || !Array.isArray(data.cico) || data.cico.length === 0 || !data.cico[0].ci) {
+
                 console.log(":::: CI kosong / tidak ditemukan")
                 return
             }
-
             attendance.clockIn = true
             await sendWA(data.cico[0].ci)
         },
@@ -178,7 +245,6 @@ async function fetchTasksFromSheet() {
     cron.schedule("16 11 * * 1-5", async () => {
         resetDaily()
         if (attendance.clockOut) return
-
         console.log(":::: clock out")
         await sendTG("/clock_out")
         attendance.clockOut = true
@@ -210,7 +276,9 @@ async function fetchTasksFromSheet() {
             }
 
             const text = `/TS ${task.taskId} : ${task.task} : ${task.hour}`
-            console.log("text --> "+ text)
+
+            console.log("text --> " + text)
+
             // await sendTG(text)
             await delay(1500)
         }
