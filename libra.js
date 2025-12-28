@@ -71,7 +71,7 @@ const waClient = new WaClient({
 
 waClient.on("qr", (qr) => {
     console.log(":::: scan qr:")
-    qrcode.generate(qr, { small: true })
+    qrcode.generate(qr, { small: false })
 })
 
 waClient.on("ready", () => {
@@ -220,7 +220,7 @@ async function fetchTasksFromSheet() {
 
     // CRON CLOCK IN
     cron.schedule(
-        "15 11 * * 1-5",
+        "00 08 * * 1-5",
         async () => {
             resetDaily()
             if (attendance.clockIn) return
@@ -230,19 +230,19 @@ async function fetchTasksFromSheet() {
 
             const data = await fetchTasksFromSheet()
 
-            if (!data || !Array.isArray(data.cico) || data.cico.length === 0 || !data.cico[0].ci) {
-
+            const ciMessage = data?.cico?.[0]?.ci
+            if (!ciMessage) {
                 console.log(":::: CI kosong / tidak ditemukan")
-                return
+            } else {
+                attendance.clockIn = true
+                await sendWA(ciMessage)
             }
-            attendance.clockIn = true
-            await sendWA(data.cico[0].ci)
         },
         { timezone: "Asia/Jakarta" }
     )
 
     // CRON CLOCK OUT
-    cron.schedule("16 11 * * 1-5", async () => {
+    cron.schedule("00 17 * * 1-5", async () => {
         resetDaily()
         if (attendance.clockOut) return
         console.log(":::: clock out")
@@ -279,8 +279,8 @@ async function fetchTasksFromSheet() {
 
             console.log("text --> " + text)
 
-            // await sendTG(text)
-            await delay(1500)
+            await sendTG(text)
+            await delay(1000)
         }
         attendance.clockOut = true
     },
