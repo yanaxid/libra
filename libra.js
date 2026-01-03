@@ -177,37 +177,19 @@ let tgReconnecting = false
  * @returns {void}
  */
 setInterval(async () => {
-    if (tgReconnecting) return
-
     try {
         if (!tgClient.connected) {
-            tgReconnecting = true
-            console.log(":::: telegram not connected, reconnecting...")
-            await tgClient.connect()
-            console.log(":::: telegram reconnected")
-            tgReconnecting = false
+            console.log(":::: telegram disconnected, waiting auto reconnect")
             return
         }
 
-        await tgClient.getMe()
+        // ringan & aman
+        await tgClient.invoke(new (require("telegram").Api.help.GetConfig)())
         console.log(":::: telegram keep-alive ok")
     } catch (e) {
-        console.error(":::: telegram keep-alive error:", e.message)
-
-        if (e.message.includes("TIMEOUT")) {
-            try {
-                tgReconnecting = true
-                await tgClient.disconnect()
-                await tgClient.connect()
-                console.log(":::: telegram reconnected after timeout")
-            } catch (err) {
-                console.error(":::: reconnect failed:", err.message)
-            } finally {
-                tgReconnecting = false
-            }
-        }
+        console.warn(":::: telegram keep-alive skipped:", e.message)
     }
-}, 10 * 60 * 1000)
+}, 15 * 60 * 1000)
 
 
 /**
