@@ -53,18 +53,14 @@ const waClient = new WaClient({
 
     puppeteer: {
         headless: true,                 // jalankan chromium tanpa gui (wajib di vps/server)
-        userDataDir: "./.wadata",       // simpan session, localstorage & cache wa agar tidak logout
         args: [
-            "--no-sandbox",             // matikan sandbox chromium (wajib di docker/vps)
+            "--no-sandbox",             // matikan sandbox chromium
             "--disable-setuid-sandbox", // hindari crash karena setuid tidak diizinkan
-            "--disable-dev-shm-usage",  // hindari freeze karena /dev/shm kecil (docker/vps)
-            "--disable-gpu"             // nonaktifkan gpu (vps tidak punya gpu)
+            "--disable-dev-shm-usage",  // hindari freeze karena /dev/shm kecil
+            "--disable-gpu"             // nonaktifkan gpu
         ]
     }
 })
-
-
-
 
 
 
@@ -86,13 +82,11 @@ waClient.on("auth_failure", (msg) => {
 waClient.on("disconnected", (reason) => {
     waReady = false
     console.error(":::: wa disconnected:", reason)
-
 })
 
 
-
 waClient.on("authenticated", () => {
-    console.log("✅ AUTHENTICATED (session tersimpan)")
+    console.log("AUTHENTICATED (session tersimpan)")
 })
 
 
@@ -113,7 +107,6 @@ process.on("SIGINT", async () => {
     } catch (e) {
         console.error(":::: error closing WA:", e.message)
     }
-
     process.exit(0)
 })
 
@@ -146,7 +139,6 @@ async function sendWA(text) {
 }
 
 
-
 // TELEGRAM CLIENT
 const tgClient = new TelegramClient(
     new StringSession(SESSION), API_ID, API_HASH, { connectionRetries: 5 }
@@ -175,9 +167,7 @@ async function sendTG(text) {
     }
 }
 
-
 let tgReconnecting = false
-
 
 
 /**
@@ -294,12 +284,37 @@ async function fetchTasksFromSheet() {
         { timezone: "Asia/Jakarta" }
     )
 
-    // CRON CLOCK OUT
-    cron.schedule("00 17 * * 1-5", async () => {
+
+    /**
+     * cron clock out untuk hari senin–kamis
+     * run 17:00
+     */
+    cron.schedule("00 17 * * 1-4", async () => {
         resetDaily()
         if (attendance.clockOut) return
 
-        console.log(":::: clock out")
+        console.log(":::: clock out (senin–kamis)")
+        await handleClockOut()
+    }, { timezone: "Asia/Jakarta" })
+
+
+    /**
+     * cron clock out khusus hari jumat
+     * run 16:30
+     */
+    cron.schedule("30 16 * * 5", async () => {
+        resetDaily()
+        if (attendance.clockOut) return
+
+        console.log(":::: clock out (jumat)")
+        await handleClockOut()
+    }, { timezone: "Asia/Jakarta" })
+
+
+    /**
+     * menjalankan proses clock out:
+     */
+    async function handleClockOut() {
         await sendTG("/clock_out")
 
         const data = await fetchTasksFromSheet()
@@ -336,5 +351,5 @@ async function fetchTasksFromSheet() {
         }
 
         attendance.clockOut = true
-    }, { timezone: "Asia/Jakarta" })
+    }
 })()
