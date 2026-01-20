@@ -296,7 +296,7 @@ async function fetchTasksFromSheet() {
 
 
     // cron senin–kamis : 17:00
-    cron.schedule("53 20 * * 1-4", async () => {
+    cron.schedule("00 17 * * 1-4", async () => {
         resetDaily()
         if (attendance.clockOut) return
 
@@ -318,8 +318,8 @@ async function fetchTasksFromSheet() {
     // run clockout
     async function handleClockOut() {
 
-         await sendWA("test") // for test
-         return 
+        // await sendWA("test") // for test
+        // return 
 
         await sendTG("/clock_out")
 
