@@ -35,6 +35,45 @@ function resetDaily() {
 }
 
 
+// LOGGING ------------------------------------------------------------
+
+async function sendLog(message, level = "INFO") {
+    if (!SHEET_API_URL) return
+
+    const payload = {
+        logs: `[${level}] ${message}`
+    }
+
+    try {
+        await fetch(SHEET_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            timeout: 5000
+        })
+    } catch (err) {
+        console.error(":::: gagal kirim log ke sheet:", err.message)
+    }
+}
+
+const originalLog = console.log
+const originalError = console.error
+
+console.log = (...args) => {
+    const msg = args.map(a => typeof a === "string" ? a : JSON.stringify(a)).join(" ")
+    originalLog(...args)
+    sendLog(msg, "INFO")
+}
+
+console.error = (...args) => {
+    const msg = args.map(a => typeof a === "string" ? a : JSON.stringify(a)).join(" ")
+    originalError(...args)
+    sendLog(msg, "ERROR")
+}
+
+
+
+
 // WHATSAPP CLIENT
 let waReady = false
 
@@ -257,7 +296,7 @@ async function fetchTasksFromSheet() {
 
 
     // cron senin–kamis : 17:00
-    cron.schedule("00 17 * * 1-4", async () => {
+    cron.schedule("53 20 * * 1-4", async () => {
         resetDaily()
         if (attendance.clockOut) return
 
@@ -279,7 +318,8 @@ async function fetchTasksFromSheet() {
     // run clockout
     async function handleClockOut() {
 
-        // await sendWA("test") // for test
+         await sendWA("test") // for test
+         return 
 
         await sendTG("/clock_out")
 
